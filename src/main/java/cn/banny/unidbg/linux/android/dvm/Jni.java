@@ -2,6 +2,8 @@ package cn.banny.unidbg.linux.android.dvm;
 
 public interface Jni {
 
+    void callStaticVoidMethod(BaseVM vm, DvmClass dvmClass, String signature, VarArg varArg);
+
     void callStaticVoidMethodV(BaseVM vm, DvmClass dvmClass, String signature, VaList vaList);
 
     boolean callStaticBooleanMethod(BaseVM vm, DvmClass dvmClass, String signature, VarArg varArg);
@@ -46,13 +48,21 @@ public interface Jni {
 
     int getIntField(BaseVM vm, DvmObject dvmObject, String signature);
 
+    long getLongField(BaseVM vm, DvmObject dvmObject, String signature);
+
     DvmObject getObjectField(BaseVM vm, DvmObject dvmObject, String signature);
 
     void setBooleanField(BaseVM vm, DvmObject dvmObject, String signature, boolean value);
 
     void setIntField(BaseVM vm, DvmObject dvmObject, String signature, int value);
 
+    void setDoubleField(BaseVM vm, DvmObject dvmObject, String signature, double value);
+
     void setLongField(BaseVM vm, DvmObject dvmObject, String signature, long value);
 
     void setObjectField(BaseVM vm, DvmObject dvmObject, String signature, DvmObject value);
+
+    void setStaticLongField(BaseVM vm, String signature, long value);
+
+    long getStaticLongField(BaseVM vm, String signature);
 }

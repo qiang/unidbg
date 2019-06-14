@@ -7,6 +7,9 @@ import cn.banny.unidbg.Module;
 import cn.banny.unidbg.Symbol;
 import cn.banny.unidbg.debugger.DebugListener;
 import cn.banny.unidbg.debugger.Debugger;
+import cn.banny.unidbg.memory.MemRegion;
+import cn.banny.unidbg.memory.Memory;
+import cn.banny.unidbg.pointer.UnicornPointer;
 import cn.banny.utils.Hex;
 import com.sun.jna.Pointer;
 import org.apache.commons.logging.Log;
@@ -17,21 +20,20 @@ import unicorn.Unicorn;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 abstract class AbstractARMDebugger implements Debugger {
 
     private static final Log log = LogFactory.getLog(AbstractARMDebugger.class);
 
-    final Map<Long, Module> breakMap = new HashMap<>();
+    private final Map<Long, Module> breakMap = new HashMap<>();
 
     final Emulator emulator;
+    private final boolean softBreakpoint;
 
-    AbstractARMDebugger(Emulator emulator) {
+    AbstractARMDebugger(Emulator emulator, boolean softBreakpoint) {
         this.emulator = emulator;
+        this.softBreakpoint = softBreakpoint;
     }
 
     @Override
@@ -49,11 +51,54 @@ abstract class AbstractARMDebugger implements Debugger {
 
     @Override
     public final void addBreakPoint(Module module, long offset) {
-        long address = (module == null ? offset : module.base + offset) & (~1);
-        if (log.isDebugEnabled()) {
-            log.debug("addBreakPoint address=0x" + Long.toHexString(address));
+        long address = module == null ? offset : module.base + offset;
+        addBreakPoint(address);
+    }
+
+    private class SoftBreakPoint {
+        final long address;
+        final byte[] backup;
+        SoftBreakPoint(long address, byte[] backup) {
+            this.address = address;
+            this.backup = backup;
         }
-        breakMap.put(address, module);
+    }
+
+    private final Map<Integer, SoftBreakPoint> softBreakpointMap = new HashMap<>();
+
+    private int svcNumber = 1;
+
+    @Override
+    public void addBreakPoint(long address) {
+        if (softBreakpoint) {
+            int svcNumber = ++this.svcNumber; // begin with 2
+            byte[] code = addSoftBreakPoint(address, svcNumber);
+
+            address &= (~1);
+            Pointer pointer = UnicornPointer.pointer(emulator, address);
+            assert pointer != null;
+            byte[] backup = pointer.getByteArray(0, code.length);
+            pointer.write(0, code, 0, code.length);
+            softBreakpointMap.put(svcNumber, new SoftBreakPoint(address, backup));
+        } else {
+            address &= (~1);
+
+            if (log.isDebugEnabled()) {
+                log.debug("addBreakPoint address=0x" + Long.toHexString(address));
+            }
+            breakMap.put(address, emulator.getMemory().findModuleByAddress(address));
+        }
+    }
+
+    abstract byte[] addSoftBreakPoint(long address, int svcNumber);
+
+    final boolean removeBreakPoint(long address) {
+        if (breakMap.containsKey(address)) {
+            breakMap.remove(address);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     private final List<CodeHistory> historyList = new ArrayList<>(15);
@@ -199,4 +244,51 @@ abstract class AbstractARMDebugger implements Debugger {
         return next;
     }
 
+    final Module findModuleByAddress(long address) {
+        Memory memory = emulator.getMemory();
+        Module module = memory.findModuleByAddress(address);
+        if (module == null) {
+            MemRegion region = emulator.getSvcMemory().findRegion(address);
+            if (region != null) {
+                String name = region.getName();
+                int maxLength = memory.getMaxLengthLibraryName().length();
+                if (name.length() > maxLength) {
+                    name = name.substring(name.length() - maxLength);
+                }
+                module = new Module(name, region.begin, region.end - region.begin, Collections.<String, Module>emptyMap(), Collections.<MemRegion>emptyList()) {
+                    @Override
+                    public Number[] callFunction(Emulator emulator, long offset, Object... args) {
+                        throw new UnsupportedOperationException();
+                    }
+                    @Override
+                    public Symbol findSymbolByName(String name, boolean withDependencies) {
+                        throw new UnsupportedOperationException();
+                    }
+                    @Override
+                    public Symbol findNearestSymbolByAddress(long addr) {
+                        throw new UnsupportedOperationException();
+                    }
+                    @Override
+                    public int callEntry(Emulator emulator, Object... args) {
+                        throw new UnsupportedOperationException();
+                    }
+                };
+            }
+        }
+        return module;
+    }
+
+    @Override
+    public final void brk(Pointer pc, int svcNumber) {
+        SoftBreakPoint breakPoint = softBreakpointMap.get(svcNumber);
+        if (breakPoint == null) {
+            debug();
+        } else {
+            if (log.isDebugEnabled()) {
+                log.debug(Inspector.inspectString(breakPoint.backup, "brk pc=" + pc + ", svcNumber=" + svcNumber + ", address=0x" + Long.toHexString(breakPoint.address)));
+            }
+            pc.write(0, breakPoint.backup, 0, breakPoint.backup.length);
+            debug();
+        }
+    }
 }

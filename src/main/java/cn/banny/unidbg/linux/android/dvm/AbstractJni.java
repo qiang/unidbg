@@ -1,6 +1,7 @@
 package cn.banny.unidbg.linux.android.dvm;
 
 import cn.banny.unidbg.linux.android.dvm.api.*;
+import cn.banny.unidbg.linux.android.dvm.wrapper.DvmBoolean;
 import cn.banny.unidbg.linux.android.dvm.wrapper.DvmInteger;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -163,6 +164,14 @@ public abstract class AbstractJni implements Jni {
                     Signature sig = (Signature) dvmObject;
                     return new ByteArray(sig.toByteArray());
                 }
+            case "java/lang/String->getBytes(Ljava/lang/String;)[B":
+                String str = (String) dvmObject.getValue();
+                StringObject charsetName = vaList.getObject(0);
+                try {
+                    return new ByteArray(str.getBytes(charsetName.value));
+                } catch (UnsupportedEncodingException e) {
+                    throw new IllegalStateException(e);
+                }
         }
 
         throw new AbstractMethodError(signature);
@@ -220,6 +229,11 @@ public abstract class AbstractJni implements Jni {
 
     @Override
     public boolean callBooleanMethod(BaseVM vm, DvmObject dvmObject, String signature, VarArg varArg) {
+        if ("java/lang/Boolean->booleanValue()Z".equals(signature)) {
+            DvmBoolean dvmBoolean = (DvmBoolean) dvmObject;
+            return dvmBoolean.value;
+        }
+
         throw new AbstractMethodError(signature);
     }
 
@@ -234,6 +248,16 @@ public abstract class AbstractJni implements Jni {
 
     @Override
     public int getIntField(BaseVM vm, DvmObject dvmObject, String signature) {
+        throw new AbstractMethodError(signature);
+    }
+
+    @Override
+    public long getLongField(BaseVM vm, DvmObject dvmObject, String signature) {
+        throw new AbstractMethodError(signature);
+    }
+
+    @Override
+    public void callStaticVoidMethod(BaseVM vm, DvmClass dvmClass, String signature, VarArg varArg) {
         throw new AbstractMethodError(signature);
     }
 
@@ -290,6 +314,11 @@ public abstract class AbstractJni implements Jni {
     public void setBooleanField(BaseVM vm, DvmObject dvmObject, String signature, boolean value) {
         throw new AbstractMethodError(signature);
     }
+    
+    @Override
+    public void setDoubleField(BaseVM vm, DvmObject dvmObject, String signature, double value) {
+        throw new AbstractMethodError(signature);
+    }
 
     @Override
     public DvmObject callObjectMethod(BaseVM vm, DvmObject dvmObject, String signature, VarArg varArg) {
@@ -306,6 +335,8 @@ public abstract class AbstractJni implements Jni {
             }
             case "android/content/Context->getPackageManager()Landroid/content/pm/PackageManager;":
                 return new DvmObject<Object>(vm.resolveClass("android/content/pm/PackageManager"), null);
+            case "android/content/Context->getApplicationInfo()Landroid/content/pm/ApplicationInfo;":
+                return new ApplicationInfo(vm);
             case "android/content/Context->getPackageName()Ljava/lang/String;": {
                 String packageName = vm.getPackageName();
                 if (packageName != null) {
@@ -348,6 +379,16 @@ public abstract class AbstractJni implements Jni {
 
     @Override
     public void callVoidMethodV(BaseVM vm, DvmObject dvmObject, String signature, VaList vaList) {
+        throw new AbstractMethodError(signature);
+    }
+
+    @Override
+    public void setStaticLongField(BaseVM vm, String signature, long value) {
+        throw new AbstractMethodError(signature);
+    }
+
+    @Override
+    public long getStaticLongField(BaseVM vm, String signature) {
         throw new AbstractMethodError(signature);
     }
 }

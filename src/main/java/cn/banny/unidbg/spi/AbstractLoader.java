@@ -5,11 +5,11 @@ import cn.banny.unidbg.arm.ARM;
 import cn.banny.unidbg.arm.ARMEmulator;
 import cn.banny.unidbg.file.FileIO;
 import cn.banny.unidbg.hook.HookListener;
-import cn.banny.unidbg.memory.MemoryMap;
-import cn.banny.unidbg.unix.UnixEmulator;
 import cn.banny.unidbg.memory.Memory;
 import cn.banny.unidbg.memory.MemoryBlock;
+import cn.banny.unidbg.memory.MemoryMap;
 import cn.banny.unidbg.pointer.UnicornPointer;
+import cn.banny.unidbg.unix.UnixEmulator;
 import cn.banny.unidbg.unix.UnixSyscallHandler;
 import com.sun.jna.Pointer;
 import org.apache.commons.io.IOUtils;
@@ -54,7 +54,8 @@ public abstract class AbstractLoader implements Memory, Loader {
     @Override
     public final UnicornPointer mmap(int length, int prot) {
         int aligned = (int) ARM.alignSize(length, emulator.getPageAlign());
-        UnicornPointer pointer = UnicornPointer.pointer(emulator, mmap2(0, aligned, prot, 0, -1, 0) & 0xffffffffL);
+        long addr = mmap2(0, aligned, prot, 0, -1, 0);
+        UnicornPointer pointer = UnicornPointer.pointer(emulator, addr);
         assert pointer != null;
         return pointer.setSize(aligned);
     }
@@ -97,10 +98,10 @@ public abstract class AbstractLoader implements Memory, Loader {
         return addr;
     }
 
-    private static final int MAP_ANONYMOUS = 0x20;
+    public static final int MAP_ANONYMOUS = 0x20;
 
     @Override
-    public int mmap2(long start, int length, int prot, int flags, int fd, int offset) {
+    public long mmap2(long start, int length, int prot, int flags, int fd, int offset) {
         int aligned = (int) ARM.alignSize(length, emulator.getPageAlign());
 
         if (((flags & MAP_ANONYMOUS) != 0) || (start == 0 && fd <= 0 && offset == 0)) {
@@ -108,7 +109,7 @@ public abstract class AbstractLoader implements Memory, Loader {
             log.debug("mmap2 addr=0x" + Long.toHexString(addr) + ", mmapBaseAddress=0x" + Long.toHexString(mmapBaseAddress) + ", start=" + start + ", fd=" + fd + ", offset=" + offset + ", aligned=" + aligned);
             unicorn.mem_map(addr, aligned, prot);
             memoryMap.put(addr, new MemoryMap(addr, aligned, prot));
-            return (int) addr;
+            return addr;
         }
         try {
             FileIO file;
@@ -161,6 +162,10 @@ public abstract class AbstractLoader implements Memory, Loader {
             memoryMap.put(start + aligned, new MemoryMap(start + aligned, removed.size - aligned, removed.prot));
             log.debug("munmap removed=0x" + Long.toHexString(removed.size) + ", aligned=0x" + Long.toHexString(aligned) + ", base=0x" + Long.toHexString(start + aligned) + ", size=" + (removed.size - aligned));
             return 0;
+        }
+
+        if (memoryMap.isEmpty()) {
+            mmapBaseAddress = MMAP_BASE;
         }
         return 0;
     }
@@ -326,11 +331,16 @@ public abstract class AbstractLoader implements Memory, Loader {
     @Override
     public final Module findModuleByAddress(long address) {
         for (Module module : getLoadedModules()) {
-            if (address >= module.base && address < module.base + module.size) {
+            long base = getModuleBase(module);
+            if (address >= base && address < base + module.size) {
                 return module;
             }
         }
         return null;
+    }
+
+    protected long getModuleBase(Module module) {
+        return module.base;
     }
 
     @Override

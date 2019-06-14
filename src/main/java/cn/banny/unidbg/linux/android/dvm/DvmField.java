@@ -53,6 +53,14 @@ class DvmField implements Hashable {
         return dvmClass.vm.jni.getIntField(dvmClass.vm, dvmObject, signature);
     }
 
+    long getLongField(DvmObject dvmObject) {
+        String signature = dvmClass.getClassName() + "->" + fieldName + ":" + fieldType;
+        if (log.isDebugEnabled()) {
+            log.debug("getLongField dvmObject=" + dvmObject + ", fieldName=" + fieldName + ", fieldType=" + fieldType + ", signature=" + signature);
+        }
+        return dvmClass.vm.jni.getLongField(dvmClass.vm, dvmObject, signature);
+    }
+
     void setObjectField(DvmObject dvmObject, DvmObject value) {
         String signature = dvmClass.getClassName() + "->" + fieldName + ":" + fieldType;
         if (log.isDebugEnabled()) {
@@ -76,7 +84,7 @@ class DvmField implements Hashable {
         }
         dvmClass.vm.jni.setIntField(dvmClass.vm, dvmObject, signature, value);
     }
-
+    
     void setLongField(DvmObject dvmObject, long value) {
         String signature = dvmClass.getClassName() + "->" + fieldName + ":" + fieldType;
         if (log.isDebugEnabled()) {
@@ -92,4 +100,29 @@ class DvmField implements Hashable {
         }
         dvmClass.vm.jni.setBooleanField(dvmClass.vm, dvmObject, signature, value);
     }
+    
+    void setDoubleField(DvmObject dvmObject, double value) {
+        String signature = dvmClass.getClassName() + "->" + fieldName + ":" + fieldType;
+        if (log.isDebugEnabled()) {
+            log.debug("setDoubleField fieldName=" + fieldName + ", fieldType=" + fieldType + ", signature=" + signature + ", value=" + value);
+        }
+        dvmClass.vm.jni.setDoubleField(dvmClass.vm, dvmObject, signature, value);
+    }
+
+    void setStaticLongField(long value) {
+        String signature = dvmClass.getClassName() + "->" + fieldName + ":" + fieldType;
+        if (log.isDebugEnabled()) {
+            log.debug("setStaticLongField fieldName=" + fieldName + ", fieldType=" + fieldType + ", signature=" + signature + ", value=" + value);
+        }
+        dvmClass.vm.jni.setStaticLongField(dvmClass.vm, signature, value);
+    }
+
+    long getStaticLongField() {
+        String signature = dvmClass.getClassName() + "->" + fieldName + ":" + fieldType;
+        if (log.isDebugEnabled()) {
+            log.debug("getStaticLongField fieldName=" + fieldName + ", fieldType=" + fieldType + ", signature=" + signature);
+        }
+        return dvmClass.vm.jni.getStaticLongField(dvmClass.vm, signature);
+    }
+
 }

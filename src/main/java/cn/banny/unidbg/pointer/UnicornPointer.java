@@ -95,17 +95,23 @@ public class UnicornPointer extends Pointer {
 
     @Override
     public void read(long offset, long[] buf, int index, int length) {
-        throw new AbstractMethodError();
+        for (int i = index; i < length; i++) {
+            buf[i] = getLong((i - index) * 8 + offset);
+        }
     }
 
     @Override
     public void read(long offset, float[] buf, int index, int length) {
-        throw new AbstractMethodError();
+    	 for (int i = index; i < length; i++) {
+             buf[i] = getFloat((i - index) * 4 + offset);
+         }
     }
 
     @Override
     public void read(long offset, double[] buf, int index, int length) {
-        throw new AbstractMethodError();
+    	  for (int i = index; i < length; i++) {
+              buf[i] = getDouble((i - index) * 8 + offset);
+          }
     }
 
     @Override

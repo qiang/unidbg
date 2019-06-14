@@ -16,6 +16,8 @@ public abstract class AbstractFileIO implements FileIO {
     private static final int F_SETFD = 2; /* set file descriptor flags */
     private static final int F_GETFL = 3; /* get file status flags */
     private static final int F_SETFL = 4; /* set file status flags */
+    private static final int F_SETLK = 6; /* Set record locking info (non-blocking).  */
+    private static final int F_SETLKW = 7; /* Set record locking info (blocking).	*/
     private static final int F_ADDFILESIGS = 61; /* add signature from same file (used by dyld for shared libs) */
 
     private static final int FD_CLOEXEC = 1;
@@ -51,10 +53,12 @@ public abstract class AbstractFileIO implements FileIO {
                     oflags |= O_NONBLOCK;
                 }
                 return 0;
+            case F_SETLK:
+            case F_SETLKW:
             case F_ADDFILESIGS:
                 return 0;
         }
-        throw new UnsupportedOperationException(getClass().getName());
+        throw new UnsupportedOperationException(getClass().getName() + ", cmd=" + cmd + ", arg=0x" + Long.toHexString(arg & 0xffffffffL));
     }
 
     @Override
@@ -113,12 +117,12 @@ public abstract class AbstractFileIO implements FileIO {
     }
 
     @Override
-    public final int mmap2(Unicorn unicorn, long addr, int aligned, int prot, int offset, int length, Map<Long, MemoryMap> memoryMap) throws IOException {
+    public final long mmap2(Unicorn unicorn, long addr, int aligned, int prot, int offset, int length, Map<Long, MemoryMap> memoryMap) throws IOException {
         byte[] data = getMmapData(offset, length);
         unicorn.mem_map(addr, aligned, prot);
         memoryMap.put(addr, new MemoryMap(addr, aligned, prot));
         unicorn.mem_write(addr, data);
-        return (int) addr;
+        return addr;
     }
 
     protected byte[] getMmapData(int offset, int length) throws IOException {
